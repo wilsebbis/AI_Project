@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ post[1] }}</title>
+</head>
+<body>
+    <h1>{{ post[1] }}</h1>
+    <p>{{ post[2] }}</p>
+    <h2>Comments</h2>
+    <ul>
+        {% for comment in comments %}
+        <li>{{ comment[2] }}</li>
+        {% endfor %}
+    </ul>
+    <form method="POST" action="/add_comment/{{ post[0] }}">
+        <textarea name="content" placeholder="Add a comment"></textarea>
+        <button type="submit">Submit</button>
+    </form>
+    <a href="/">Back to Forum</a>
+</body>
+</html>

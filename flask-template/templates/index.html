@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Password Manager</title>
+</head>
+<body>
+    <h1>Password Manager</h1>
+    <a href="/add_password">Add Password</a>
+    <a href="/logout">Logout</a>
+    <ul>
+        {% for password in passwords %}
+        <li>
+            {{ password[1] }} ({{ password[2] }})
+            <a href="/view_password/{{ password[0] }}">View</a>
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
