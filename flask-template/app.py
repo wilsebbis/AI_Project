@@ -19,7 +19,9 @@ limiter = Limiter(
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))  # Fallback to a random key if not set
 
 # Retrieve the hashed master password from an environment variable
-HASHED_MASTER_PASSWORD = os.environ.get('HASHED_MASTER_PASSWORD')
+#HASHED_MASTER_PASSWORD = os.environ.get('HASHED_MASTER_PASSWORD')
+
+HASHED_MASTER_PASSWORD="$2b$12$0g0KMuqFV6tTIPcBFp6gLOEZ4RWB1BDaiasy9HJxvp6nC/rCQ4Wte"
 
 # Generate a key for encryption (store this securely in production)
 if not os.path.exists('secret.key'):
@@ -53,12 +55,23 @@ def init_db():
 def login():
     if request.method == 'POST':
         master_password = request.form['master_password']
+        
+        # Check if HASHED_MASTER_PASSWORD is set and valid
+        if not HASHED_MASTER_PASSWORD or not HASHED_MASTER_PASSWORD.strip():
+            return "Server error: Master password is not configured.", 500
+
         # Verify the master password using bcrypt
-        if HASHED_MASTER_PASSWORD and bcrypt.checkpw(master_password.encode(), HASHED_MASTER_PASSWORD.encode()):
-            session['master_password'] = master_password
-            return redirect(url_for('index'))
-        else:
-            return render_template('invalid_password.html', back_url=url_for('login'))
+        try:
+            if bcrypt.checkpw(master_password.encode(), HASHED_MASTER_PASSWORD.encode()):
+                session['master_password'] = master_password
+                return redirect(url_for('index'))
+            else:
+                return render_template('invalid_password.html', back_url=url_for('login'))
+        except ValueError as e:
+            return f"Configuration error: {str(e)}", 500
+        except Exception as e:
+            return f"An error occurred: {str(e)}", 500
+
     return render_template('login.html')
 
 # Routes
