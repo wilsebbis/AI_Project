@@ -1,10 +1,25 @@
+import os
+import bcrypt  # Import bcrypt for password hashing
 from flask import Flask, render_template, request, redirect, url_for, session
 from cryptography.fernet import Fernet
 import sqlite3
-import os
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Secret key for session management
+
+# Initialize Flask-Limiter
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"]  # Default rate limits for all routes
+)
+
+# Use an environment variable for the secret key
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))  # Fallback to a random key if not set
+
+# Retrieve the hashed master password from an environment variable
+HASHED_MASTER_PASSWORD = os.environ.get('HASHED_MASTER_PASSWORD')
 
 # Generate a key for encryption (store this securely in production)
 if not os.path.exists('secret.key'):
@@ -33,6 +48,19 @@ def init_db():
         ''')
         conn.commit()
 
+@app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")  # Limit login attempts to 5 per minute
+def login():
+    if request.method == 'POST':
+        master_password = request.form['master_password']
+        # Verify the master password using bcrypt
+        if HASHED_MASTER_PASSWORD and bcrypt.checkpw(master_password.encode(), HASHED_MASTER_PASSWORD.encode()):
+            session['master_password'] = master_password
+            return redirect(url_for('index'))
+        else:
+            return render_template('invalid_password.html', back_url=url_for('login'))
+    return render_template('login.html')
+
 # Routes
 @app.route('/')
 def index():
@@ -44,17 +72,9 @@ def index():
         passwords = cursor.fetchall()
     return render_template('index.html', passwords=passwords)
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        master_password = request.form['master_password']
-        # In production, hash and verify the master password securely
-        if master_password == 'your_master_password':  # Replace with a hashed password check
-            session['master_password'] = master_password
-            return redirect(url_for('index'))
-        else:
-            return render_template('invalid_password.html', back_url=url_for('login'))
-    return render_template('login.html')
+@app.errorhandler(429)
+def ratelimit_error(e):
+    return "Too many requests. Please try again later.", 429
 
 @app.route('/add_password', methods=['GET', 'POST'])
 def add_password():
@@ -64,6 +84,10 @@ def add_password():
         website = request.form['website']
         username = request.form['username']
         password = request.form['password']
+
+        if len(password) > 1000:
+            return "Password exceeds the maximum allowed length of 1000 characters", 400
+
         encrypted_password = cipher.encrypt(password.encode()).decode()
         with sqlite3.connect(DATABASE) as conn:
             cursor = conn.cursor()
@@ -132,6 +156,10 @@ def update_password(password_id):
     
     if request.method == 'POST':
         new_password = request.form['new_password']
+
+        if len(new_password) > 1000:
+            return "Password exceeds the maximum allowed length of 1000 characters", 400
+
         encrypted_password = cipher.encrypt(new_password.encode()).decode()
         with sqlite3.connect(DATABASE) as conn:
             cursor = conn.cursor()
