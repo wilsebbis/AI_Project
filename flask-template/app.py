@@ -5,6 +5,7 @@ from cryptography.fernet import Fernet
 import sqlite3
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+import bleach
 
 app = Flask(__name__)
 
@@ -20,6 +21,8 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))  # Fallback 
 
 # Retrieve the hashed master password from an environment variable
 #HASHED_MASTER_PASSWORD = os.environ.get('HASHED_MASTER_PASSWORD')
+
+# Wasn't working so I hardcoded the other version
 
 HASHED_MASTER_PASSWORD="$2b$12$0g0KMuqFV6tTIPcBFp6gLOEZ4RWB1BDaiasy9HJxvp6nC/rCQ4Wte"
 
@@ -94,8 +97,8 @@ def add_password():
     if 'master_password' not in session:
         return redirect(url_for('login'))
     if request.method == 'POST':
-        website = request.form['website']
-        username = request.form['username']
+        website = bleach.clean(request.form['website'])  # Sanitize input
+        username = bleach.clean(request.form['username'])  # Sanitize input
         password = request.form['password']
 
         if len(password) > 1000:
